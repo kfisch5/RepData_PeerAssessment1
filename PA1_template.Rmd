@@ -1,25 +1,81 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "peerAssignment1"
+author: "kfischer"
+date: "Friday, January 16, 2015"
+output: html_document
 ---
+##Loading and Processing the Data
+```{r}
+setwd("C:/Users/kfischer/Documents/repdata-data-activity")
 
+activity <- read.csv("activity.csv")
+head(activity)
+```
 
-## Loading and preprocessing the data
+##What is the Mean Total Number of Steps Taken Per Day?
 
+```{r}
+steps1 <- aggregate(steps ~ date, activity, sum)
+hist(steps1$steps, main = paste("Total Steps Each Day"), col="red", xlab="Number of Steps")
 
+mean <- mean(steps1$steps)
+median <- median(steps1$steps)
+print(mean, dig= 8 )
+print(median, dig = 8)
+```
 
-## What is mean total number of steps taken per day?
+##What is the Average Daily Activity Pattern?
+```{r}
+time_series <- tapply(activity$steps, activity$interval, mean, na.rm = TRUE)
+plot(row.names(time_series), time_series, type = "l", xlab = "5-min interval", 
+    ylab = "Average across all Days", main = "Average number of steps taken", 
+    col = "red")
 
+max_interval <- which.max(time_series)
+names(max_interval)
+```
 
+##Input Missing Values
+```{r}
+activity_NA <- sum(is.na(activity))
+activity_NA
 
-## What is the average daily activity pattern?
+StepsAverage <- aggregate(steps ~ interval, data = activity, FUN = "mean")
+fillNA <- numeric()
+for (i in 1:nrow(activity)) {
+    obs <- activity[i, ]
+    if (is.na(obs$steps)) {
+        steps <- subset(StepsAverage, interval == obs$interval)$steps
+    } else {
+        steps <- obs$steps
+    }
+    fillNA <- c(fillNA, steps)
+}
 
+new_activity <- activity
+new_activity$steps <- fillNA
 
+StepsTotal2 <- aggregate(steps ~ date, data = new_activity, sum, na.rm = TRUE)
 
-## Imputing missing values
+hist(StepsTotal2$steps, main = "Total steps by day", xlab = "day", col = "red")
+mean(StepsTotal2$steps)
+median(StepsTotal2$steps)
+```
 
+##Are there differences in activity patterns between weekdays and weekends?
 
+```{r}
+weekday.or.weekend <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")) 
+        return("weekday") else if (day %in% c("Saturday", "Sunday")) 
+        return("weekend") else stop("invalid date")
+}
+new_activity$date <- as.Date(new_activity$date)
+new_activity$day <- sapply(new_activity$date, FUN = weekday.or.weekend)
 
-## Are there differences in activity patterns between weekdays and weekends?
+averages <- aggregate(steps ~ interval + day, data = new_activity, "mean")
+library("ggplot2")
+ggplot(averages, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) + 
+    xlab("5-minute interval") + ylab("Number of steps")
+```
